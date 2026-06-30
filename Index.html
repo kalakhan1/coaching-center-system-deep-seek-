@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coaching Center ERP</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <style>
+    :root {
+      --primary: #0d6efd; --bg: #f5f7fa; --card-bg: #ffffff;
+      --text: #212529; --sidebar-bg: #1e293b; --sidebar-text: #cbd5e1;
+    }
+    [data-theme="dark"] {
+      --bg: #0f172a; --card-bg: #1e293b; --text: #e2e8f0;
+      --sidebar-bg: #0f172a; --sidebar-text: #94a3b8;
+    }
+    * { transition: background-color 0.3s, color 0.3s; }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; }
+    
+    #loginScreen {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #0d6efd 0%, #6610f2 50%, #6f42c1 100%);
+    }
+    .login-card { width: 100%; max-width: 420px; border-radius: 20px; background: #fff; }
+    
+    .app-layout { display: flex; min-height: 100vh; }
+    .sidebar {
+      width: 260px; background: var(--sidebar-bg); color: var(--sidebar-text);
+      position: fixed; top: 0; left: 0; bottom: 0; z-index: 1000;
+      display: flex; flex-direction: column; transition: transform 0.3s;
+    }
+    .main-area { margin-left: 260px; flex: 1; display: flex; flex-direction: column; }
+    
+    .sidebar-brand { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    .sidebar-nav { flex: 1; padding: 10px 0; overflow-y: auto; }
+    .sidebar-nav button {
+      color: var(--sidebar-text); padding: 12px 20px; margin: 2px 10px;
+      border-radius: 10px; display: flex; align-items: center; gap: 10px;
+      font-size: 0.95rem; border: none; background: none; width: 100%; text-align: left;
+      cursor: pointer;
+    }
+    .sidebar-nav button:hover, .sidebar-nav button.active {
+      background: rgba(255,255,255,0.1); color: #fff;
+    }
+    .sidebar-nav button.active { background: var(--primary); }
+    .sidebar-footer { padding: 15px 20px; border-top: 1px solid rgba(255,255,255,0.1); }
+    
+    .topbar {
+      background: var(--card-bg); padding: 12px 20px; display: flex;
+      align-items: center; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      position: sticky; top: 0; z-index: 999;
+    }
+    
+    .content-area { padding: 20px; }
+    .card { background: var(--card-bg); border: 1px solid rgba(0,0,0,0.08); border-radius: 16px; margin-bottom: 16px; }
+    .card-header { background: transparent; border-bottom: 1px solid rgba(0,0,0,0.06); padding: 16px 20px; font-weight: 600; }
+    
+    .table { color: var(--text); margin: 0; }
+    .table th { font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; background: rgba(0,0,0,0.02); }
+    
+    .stat-card { border-radius: 16px; padding: 24px; color: #fff; }
+    .stat-value { font-size: 2rem; font-weight: 700; }
+    
+    .form-control, .form-select { 
+      background: var(--card-bg); color: var(--text); 
+      border: 1px solid rgba(0,0,0,0.15); border-radius: 10px; 
+    }
+    [data-theme="dark"] .form-control, [data-theme="dark"] .form-select { 
+      border-color: rgba(255,255,255,0.15); 
+    }
+    
+    #loadingOverlay { 
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6); 
+      display: none; align-items: center; justify-content: center; z-index: 9999; 
+      flex-direction: column; 
+    }
+    
+    @media (max-width: 768px) {
+      .sidebar { transform: translateX(-100%); }
+      .sidebar.show { transform: translateX(0); }
+      .main-area { margin-left: 0; }
+      .menu-overlay { 
+        position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; 
+        display: none; 
+      }
+      .menu-overlay.show { display: block; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Toast Container -->
+<div style="position:fixed;top:20px;right:20px;z-index:9999;" id="toastContainer"></div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay">
+  <div class="spinner-border text-light mb-3" style="width:3rem;height:3rem;"></div>
+  <p class="text-light fw-bold">Loading...</p>
+</div>
+
+<!-- Login Screen -->
+<div id="loginScreen">
+  <div class="login-card card p-4 p-md-5 shadow-lg">
+    <div class="text-center mb-4">
+      <img id="loginLogo" src="https://img.icons8.com/color/96/000000/classroom.png" alt="Logo" style="width:80px;height:80px;">
+      <h3 id="loginInstituteName" class="mt-3 fw-bold" style="color:#212529;">Coaching ERP</h3>
+      <p class="text-muted">Sign in to continue</p>
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold">Password</label>
+      <input type="password" id="loginPassword" class="form-control form-control-lg" placeholder="Enter password" autofocus>
+    </div>
+    <button id="loginBtn" class="btn btn-primary btn-lg w-100 fw-bold" onclick="handleLogin()">
+      <i class="bi bi-box-arrow-in-right me-2"></i>Login
+    </button>
+    <p id="loginError" class="text-danger mt-3 text-center fw-semibold" style="display:none;"></p>
+    <p class="text-muted text-center mt-2 small">Default: admin123</p>
+  </div>
+</div>
+
+<!-- Main App -->
+<div id="appMain" style="display:none;">
+  <div class="app-layout">
+    <div class="menu-overlay" id="menuOverlay" onclick="closeSidebar()"></div>
+    
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <h5 class="mb-0 text-white"><i class="bi bi-mortarboard-fill me-2"></i>ERP System</h5>
+        <small id="sidebarInstitute" class="text-white-50"></small>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="active" data-page="dashboard" onclick="navigateTo('dashboard', this)"><i class="bi bi-speedometer2"></i> Dashboard</button>
+        <button data-page="students" onclick="navigateTo('students', this)"><i class="bi bi-people"></i> Students</button>
+        <button data-page="tutors" onclick="navigateTo('tutors', this)"><i class="bi bi-person-badge"></i> Tutors</button>
+        <button data-page="fees" onclick="navigateTo('fees', this)"><i class="bi bi-cash-stack"></i> Fee Management</button>
+        <button data-page="salary" onclick="navigateTo('salary', this)"><i class="bi bi-wallet2"></i> Salary Management</button>
+        <button data-page="idcards" onclick="navigateTo('idcards', this)"><i class="bi bi-credit-card"></i> ID Cards</button>
+        <button data-page="archive" onclick="navigateTo('archive', this)"><i class="bi bi-archive"></i> Archive</button>
+        <button data-page="reminders" onclick="navigateTo('reminders', this)"><i class="bi bi-bell"></i> Reminders</button>
+        <button data-page="settings" onclick="navigateTo('settings', this)"><i class="bi bi-gear"></i> Settings</button>
+      </nav>
+      <div class="sidebar-footer">
+        <button onclick="toggleTheme()" class="btn btn-sm btn-outline-light w-100 mb-2" id="themeBtn">
+          <i class="bi bi-moon-stars"></i> <span id="themeLabel">Dark Mode</span>
+        </button>
+        <button onclick="handleLogout()" class="btn btn-sm btn-outline-danger w-100">
+          <i class="bi bi-box-arrow-right"></i> Logout
+        </button>
+      </div>
+    </aside>
+    
+    <div class="main-area">
+      <div class="topbar">
+        <div class="d-flex align-items-center gap-3">
+          <button class="btn btn-outline-secondary d-md-none" onclick="toggleSidebar()"><i class="bi bi-list"></i></button>
+          <h5 class="mb-0 fw-bold" id="pageTitle">Dashboard</h5>
+        </div>
+        <span class="badge bg-success">● Online</span>
+      </div>
+      <div class="content-area" id="dynamicContent"></div>
+    </div>
+  </div>
+</div>
+
+<div id="modalContainer"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script>
+// ==================== GLOBAL STATE ====================
+var App = {
+  token: localStorage.getItem('erp_token') || null,
+  settings: {},
+  students: [],
+  tutors: [],
+  currentPage: 'dashboard',
+  theme: 'light'
+};
+
+// ==================== HELPERS ====================
+function $(sel) { return document.querySelector(sel); }
+function $$(sel) { return document.querySelectorAll(sel); }
+
+function showLoading() { $('#loadingOverlay').style.display = 'flex'; }
+function hideLoading() { $('#loadingOverlay').style.display = 'none'; }
+
+function showToast(msg, type) {
+  type = type || 'info';
+  var icons = { success: '✅', danger: '❌', warning: '⚠️', info: 'ℹ️' };
+  var div = document.createElement('div');
+  div.className = 'alert alert-' + type + ' alert-dismissible fade show shadow-sm';
+  div.style.minWidth = '280px';
+  div.innerHTML = '<strong>' + (icons[type]||'') + '</strong> ' + msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+  $('#toastContainer').appendChild(div);
+  setTimeout(function() { if (div.parentNode) div.remove(); }, 4000);
+}
+
+function callGS(fn) {
+  var args = Array.prototype.slice.call(arguments, 1);
+  return new Promise(function(resolve) {
+    google.script.run
+      .withSuccessHandler(function(res) {
+        console.log(fn + ' response:', res);
+        resolve(res);
+      })
+      .withFailureHandler(function(err) {
+        console.error(fn + ' error:', err);
+        showToast('Server error: ' + err.message, 'danger');
+        resolve(null);
+      })[fn].apply(null, args);
+  });
+}
+
+function applyTheme() {
+  document.documentElement.setAttribute('data-theme', App.theme);
+  var label = $('#themeLabel');
+  var icon = $('#themeBtn i');
+  if (label) label.textContent = App.theme === 'dark' ? 'Light Mode' : 'Dark Mode';
+  if (icon) icon.className = App.theme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-stars';
+}
+
+function toggleTheme() {
+  App.theme = App.theme === 'dark' ? 'light' : 'dark';
+  App.settings.theme = App.theme;
+  callGS('updateSettings', { theme: App.theme });
+  applyTheme();
+}
+
+function toggleSidebar() {
+  $('#sidebar').classList.add('show');
+  $('#menuOverlay').classList.add('show');
+}
+function closeSidebar() {
+  $('#sidebar').classList.remove('show');
+  $('#menuOverlay').classList.remove('show');
+}
+
+// ==================== AUTH ====================
+async function handleLogin() {
+  var pwd = $('#loginPassword').value.trim();
+  var errEl = $('#loginError');
+  var btn = $('#loginBtn');
+  
+  if (!pwd) {
+    errEl.style.display = 'block';
+    errEl.textContent = 'Please enter password';
+    return;
+  }
+  
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Logging in...';
+  errEl.style.display = 'none';
+  
+  showLoading();
+  
+  try {
+    var res = await callGS('adminLogin', pwd);
+    hideLoading();
+    
+    if (res && res.success === true) {
+      App.token = res.token;
+      if (res.settings) App.settings = res.settings;
+      localStorage.setItem('erp_token', res.token);
+      showToast('Welcome!', 'success');
+      showMainApp();
+    } else {
+      errEl.style.display = 'block';
+      errEl.textContent = (res && res.message) ? res.message : 'Login failed';
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-box-arrow-in-right me-2"></i>Login';
+      $('#loginPassword').value = '';
+    }
+  } catch(e) {
+    hideLoading();
+    errEl.style.display = 'block';
+    errEl.textContent = 'Connection error. Check console.';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-box-arrow-in-right me-2"></i>Login';
+  }
+}
+
+$('#loginPassword').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') handleLogin();
+});
+
+async function checkSession() {
+  if (!App.token) {
+    showLoginScreen();
+    return;
+  }
+  
+  showLoading();
+  var valid = await callGS('validateSession', App.token);
+  
+  if (valid === true) {
+    var settings = await callGS('getSettings');
+    if (settings && typeof settings === 'object' && !settings.success) {
+      App.settings = settings;
+    }
+    hideLoading();
+    showMainApp();
+  } else {
+    hideLoading();
+    localStorage.removeItem('erp_token');
+    App.token = null;
+    showLoginScreen();
+  }
+}
+
+function showLoginScreen() {
+  $('#loginScreen').style.display = 'flex';
+  $('#appMain').style.display = 'none';
+  $('#loginPassword').value = '';
+  $('#loginError').style.display = 'none';
+  var btn = $('#loginBtn');
+  btn.disabled = false;
+  btn.innerHTML = '<i class="bi bi-box-arrow-in-right me-2"></i>Login';
+}
+
+function showMainApp() {
+  $('#loginScreen').style.display = 'none';
+  $('#appMain').style.display = 'block';
+  App.theme = App.settings.theme || 'light';
+  applyTheme();
+  if ($('#sidebarInstitute')) {
+    $('#sidebarInstitute').textContent = App.settings.instituteName || '';
+  }
+  navigateTo('dashboard');
+}
+
+async function handleLogout() {
+  if (!confirm('Are you sure you want to logout?')) return;
+  showLoading();
+  await callGS('adminLogout', App.token);
+  localStorage.removeItem('erp_token');
+  App.token = null;
+  hideLoading();
+  showLoginScreen();
+  showToast('Logged out', 'info');
+}
+
+// ==================== NAVIGATION ====================
+async function navigateTo(page, btn) {
+  if (btn) {
+    document.querySelectorAll('.sidebar-nav button').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+  }
+  App.currentPage = page;
+  $('#pageTitle').textContent = btn ? btn.textContent.trim() : page;
+  closeSidebar();
+  
+  var content = $('#dynamicContent');
+  showLoading();
+  
+  try {
+    switch(page) {
+      case 'dashboard': content.innerHTML = await renderDashboard(); break;
+      case 'students': content.innerHTML = await renderStudents(); break;
+      case 'tutors': content.innerHTML = await renderTutors(); break;
+      case 'fees': content.innerHTML = await renderFees(); break;
+      case 'salary': content.innerHTML = await renderSalary(); break;
+      case 'idcards': content.innerHTML = await renderIDCards(); break;
+      case 'archive': content.innerHTML = await renderArchive(); break;
+      case 'reminders': content.innerHTML = await renderReminders(); break;
+      case 'settings': content.innerHTML = await renderSettings(); break;
+      default: content.innerHTML = '<div class="card p-5 text-center"><h3>Page Not Found</h3></div>';
+    }
+  } catch(e) {
+    console.error('Page render error:', e);
+    content.innerHTML = '<div class="alert alert-danger">Error loading page. Please refresh.</div>';
+  }
+  
+  hideLoading();
+}
+
+// ==================== DASHBOARD ====================
+async function renderDashboard() {
+  App.students = (await callGS('getStudents')) || [];
+  App.tutors = (await callGS('getTutors')) || [];
+  var activeStu = App.students.filter(function(s) { return s.Status === 'Active'; }).length;
+  var totalFee = App.students.reduce(function(sum, s) { return sum + (parseFloat(s.Fee) || 0); }, 0);
+  
+  var html = '<div class="row g-3 mb-4">';
+  html += '<div class="col-md-3 col-6"><div class="stat-card" style="background:linear-gradient(135deg,#0d6efd,#6610f2);"><div class="d-flex justify-content-between"><div><div class="stat-value">' + App.students.length + '</div><div>Total Students</div></div><div style="font-size:2.5rem;opacity:0.3;"><i class="bi bi-people-fill"></i></div></div></div></div>';
+  html += '<div class="col-md-3 col-6"><div class="stat-card" style="background:linear-gradient(135deg,#198754,#20c997);"><div class="d-flex justify-content-between"><div><div class="stat-value">' + activeStu + '</div><div>Active Students</div></div><div style="font-size:2.5rem;opacity:0.3;"><i class="bi bi-person-check-fill"></i></div></div></div></div>';
+  html += '<div class="col-md-3 col-6"><div class="stat-card" style="background:linear-gradient(135deg,#ffc107,#fd7e14);"><div class="d-flex justify-content-between"><div><div class="stat-value">' + App.tutors.length + '</div><div>Total Tutors</div></div><div style="font-size:2.5rem;opacity:0.3;"><i class="bi bi-person-badge-fill"></i></div></div></div></div>';
+  html += '<div class="col-md-3 col-6"><div class="stat-card" style="background:linear-gradient(135deg,#dc3545,#e83e8c);"><div class="d-flex justify-content-between"><div><div class="stat-value">PKR</div><div>' + totalFee.toLocaleString() + '</div></div><div style="font-size:2.5rem;opacity:0.3;"><i class="bi bi-cash-coin"></i></div></div></div></div>';
+  html += '</div>';
+  
+  html += '<div class="row g-3"><div class="col-md-6"><div class="card"><div class="card-header">Recent Students</div><div class="card-body">';
+  var recent = App.students.slice(-5).reverse();
+  if (recent.length === 0) html += '<p class="text-muted">No students yet</p>';
+  else {
+    recent.forEach(function(s) {
+      html += '<div class="d-flex justify-content-between py-2 border-bottom"><span><strong>' + (s.FullName||'') + '</strong><br><small>' + (s.Class||'') + ' - ' + (s.Batch||'') + '</small></span><span class="badge bg-' + (s.Status==='Active'?'success':'warning') + '">' + (s.Status||'') + '</span></div>';
+    });
+  }
+  html += '</div></div></div>';
+  
+  html += '<div class="col-md-6"><div class="card"><div class="card-header">Quick Actions</div><div class="card-body d-grid gap-2">';
+  html += '<button class="btn btn-primary" onclick="navigateTo(\'students\');setTimeout(function(){showStudentForm();},300);"><i class="bi bi-person-plus"></i> Register Student</button>';
+  html += '<button class="btn btn-success" onclick="navigateTo(\'tutors\');setTimeout(function(){showTutorForm();},300);"><i class="bi bi-person-plus-fill"></i> Register Tutor</button>';
+  html += '<button class="btn btn-warning" onclick="navigateTo(\'fees\')"><i class="bi bi-cash"></i> Record Fee Payment</button>';
+  html += '<button class="btn btn-info" onclick="navigateTo(\'salary\')"><i class="bi bi-wallet"></i> Process Salary</button>';
+  html += '</div></div></div></div>';
+  
+  return html;
+}
+
+// ==================== STUDENTS ====================
+async function renderStudents() {
+  App.students = (await callGS('getStudents')) || [];
+  var html = '<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2"><h4><i class="bi bi-people me-2"></i>Students (' + App.students.length + ')</h4>';
+  html += '<div class="d-flex gap-2"><input type="text" id="studentSearch" class="form-control" placeholder="Search..." style="width:200px;" oninput="filterStudentTable()"><button class="btn btn-primary" onclick="showStudentForm()"><i class="bi bi-plus-lg"></i> Add Student</button></div></div>';
+  html += '<div class="card"><div class="table-responsive"><table class="table table-hover mb-0" id="studentsTable"><thead><tr><th>ID</th><th>Name</th><th>Father</th><th>Class</th><th>Phone</th><th>Fee</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
+  
+  App.students.forEach(function(s) {
+    html += '<tr data-search="' + (s.FullName||'') + ' ' + (s.StudentID||'') + ' ' + (s.Phone||'') + '"><td><small>' + (s.StudentID||'') + '</small></td><td><strong>' + (s.FullName||'') + '</strong></td><td>' + (s.FatherName||'') + '</td><td>' + (s.Class||'') + '</td><td>' + (s.Phone||'') + '</td><td>PKR ' + (parseFloat(s.Fee||0).toLocaleString()) + '</td><td><span class="badge bg-' + (s.Status==='Active'?'success':'warning') + '">' + (s.Status||'') + '</span></td>';
+    html += '<td><button class="btn btn-sm btn-info me-1" onclick="editStudent(\'' + s.StudentID + '\')"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-success me-1" onclick="showStudentIDCard(\'' + s.StudentID + '\')"><i class="bi bi-credit-card"></i></button><button class="btn btn-sm btn-danger" onclick="deleteStudentConfirm(\'' + s.StudentID + '\')"><i class="bi bi-trash"></i></button></td></tr>';
+  });
+  
+  html += '</tbody></table></div></div>';
+  return html;
+}
+
+function filterStudentTable() {
+  var q = ($('#studentSearch') ? $('#studentSearch').value.toLowerCase() : '');
+  document.querySelectorAll('#studentsTable tbody tr').forEach(function(row) {
+    row.style.display = (row.dataset.search || '').toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+function showStudentForm(sid) {
+  var s = sid ? App.students.find(function(st) { return st.StudentID === sid; }) : null;
+  var html = '<div class="modal fade" id="studentModal" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5>' + (s ? 'Edit' : 'Register') + ' Student</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="studentForm" class="row g-3">';
+  html += '<div class="col-md-6"><label class="form-label">Full Name *</label><input class="form-control" name="fullName" value="' + (s ? s.FullName||'' : '') + '" required></div>';
+  html += '<div class="col-md-6"><label class="form-label">Father Name</label><input class="form-control" name="fatherName" value="' + (s ? s.FatherName||'' : '') + '"></div>';
+  html += '<div class="col-md-4"><label class="form-label">Gender</label><select class="form-select" name="gender"><option>Male</option><option>Female</option></select></div>';
+  html += '<div class="col-md-4"><label class="form-label">DOB</label><input type="date" class="form-control" name="dob" value="' + (s ? s.DOB||'' : '') + '"></div>';
+  html += '<div class="col-md-4"><label class="form-label">CNIC</label><input class="form-control" name="cnic" value="' + (s ? s.CNIC||'' : '') + '"></div>';
+  html += '<div class="col-md-4"><label class="form-label">Phone</label><input class="form-control" name="phone" value="' + (s ? s.Phone||'' : '') + '"></div>';
+  html += '<div class="col-md-4"><label class="form-label">WhatsApp</label><input class="form-control" name="whatsapp" value="' + (s ? s.WhatsApp||'' : '') + '"></div>';
+  html += '<div class="col-md-4"><label class="form-label">Email</label><input type="email" class="form-control" name="email" value="' + (s ? s.Email||'' : '') + '"></div>';
+  html += '<div class="col-12"><label class="form-label">Address</label><input class="form-control" name="address" value="' + (s ? s.Address||'' : '') + '"></div>';
+  html += '<div class="col-md-4"><label class="form-label">City</label><input class="form-control" name="city" value="' + (s ? s.City||'' : '') + '"></div>';
+  html += '<div class="col-md-4"><label class="form-label">Institute</label><input class="form-control" name="institute" value="' + (s ? s.Institute||'' : '') + '"></div>';
+  html += '<div class="col-md-4"><label class="form-label">Qualification</label><input class="form-control" name="qualification" value="' + (s ? s.Qualification||'' : '') + '"></div>';
+  html += '<div class="col-md-4"><label class="form-label">Course</label><input class="form-control" name="course" value="' + (s ? s.Course||'' : '') + '"></div>';
+  html += '<div class="col-md-4"><label class="form-label">Class</label><input class="form-control" name="class" value="' + (s ? s.Class||'' : '') + '"></div>';
+  html += '<div class="col-md-4"><label class="form-label">Batch</label><input class="form-control" name="batch" value="' + (s ? s.Batch||'' : '') + '"></div>';
+  html += '<div class="col-md-4"><label class="form-label">Slot</label><input class="form-control" name="slot" value="' + (s ? s.Slot||'' : '') + '"></div>';
+  html += '<div class="col-md-4"><label class="form-label">Fee (PKR)</label><input type="number" class="form-control" name="fee" value="' + (s ? s.Fee||0 : 0) + '"></div>';
+  html += '<div class="col-md-4"><label class="form-label">Discount</label><input type="number" class="form-control" name="discount" value="' + (s ? s.Discount||0 : 0) + '"></div>';
+  html += '<div class="col-md-6"><label class="form-label">Emergency Contact</label><input class="form-control" name="emergencyContact" value="' + (s ? s.EmergencyContact||'' : '') + '"></div>';
+  html += '<div class="col-md-6"><label class="form-label">Guardian Contact</label><input class="form-control" name="guardianContact" value="' + (s ? s.GuardianContact||'' : '') + '"></div>';
+  html += '<div class="col-md-6"><label class="form-label">Status</label><select class="form-select" name="status"><option>Active</option><option>Inactive</option><option>Suspended</option></select></div>';
+  html += '<div class="col-md-6"><label class="form-label">Image URL</label><input class="form-control" name="imageUrl" value="' + (s ? s.ImageURL||'' : '') + '"></div>';
+  html += '<div class="col-12"><label class="form-label">Notes</label><textarea class="form-control" name="notes">' + (s ? s.Notes||'' : '') + '</textarea></div>';
+  html += '<input type="hidden" name="studentId" value="' + (s ? s.StudentID : '') + '">';
+  html += '</form></div><div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" onclick="saveStudent()">' + (s ? 'Update' : 'Register') + '</button></div></div></div></div>';
+  
+  $('#modalContainer').innerHTML = html;
+  var modal = new bootstrap.Modal(document.getElementById('studentModal'));
+  modal.show();
+}
+
+async function saveStudent() {
+  var form = document.getElementById('studentForm');
+  var fd = new FormData(form);
+  var data = {};
+  fd.forEach(function(v, k) { data[k] = v; });
+  var sid = data.studentId;
+  delete data.studentId;
+  
+  showLoading();
+  var res;
+  if (sid) {
+    res = await callGS('updateStudent', sid, data);
+  } else {
+    res = await callGS('addStudent', data);
+  }
+  hideLoading();
+  
+  if (res && res.success) {
+    showToast(sid ? 'Student updated!' : 'Student registered! ID: ' + res.studentId, 'success');
+    bootstrap.Modal.getInstance(document.getElementById('studentModal')).hide();
+    navigateTo('students');
+  } else {
+    showToast(res ? res.message || 'Failed' : 'Failed to save', 'danger');
+  }
+}
+
+function editStudent(sid) { showStudentForm(sid); }
+
+async function deleteStudentConfirm(sid) {
+  if (!confirm('Delete this student? This will move to archive.')) return;
+  showLoading();
+  var res = await callGS('deleteStudent', sid);
+  hideLoading();
+  if (res && res.success) { showToast('Student moved to archive', 'warning'); navigateTo('students'); }
+  else showToast('Delete failed', 'danger');
+}
+
+// ==================== ID CARD ====================
+function showStudentIDCard(sid) {
+  var s = App.students.find(function(st) { return st.StudentID === sid; });
+  if (!s) return showToast('Student not found', 'danger');
+  
+  var qrData = 'STUDENT:' + s.StudentID + '|' + s.FullName + '|' + (s.Class||'') + '|' + (App.settings.instituteName||'');
+  var html = '<div class="modal fade" id="idcardModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5>Student ID Card</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="card p-3" id="idcardPrint" style="background:linear-gradient(135deg,#0d6efd,#6610f2);color:#fff;border-radius:16px;"><div class="text-center mb-3"><h5>' + (App.settings.instituteName||'Coaching Center') + '</h5><small>' + (App.settings.address||'') + '</small></div><div class="text-center mb-3"><img src="' + (s.ImageURL||'https://img.icons8.com/color/96/000000/user.png') + '" style="width:80px;height:80px;border-radius:50%;border:3px solid #fff;object-fit:cover;"></div><h6 class="text-center">' + (s.FullName||'') + '</h6><div class="row small mt-3"><div class="col-6"><strong>ID:</strong> ' + (s.StudentID||'') + '</div><div class="col-6"><strong>Class:</strong> ' + (s.Class||'') + '</div><div class="col-6"><strong>Batch:</strong> ' + (s.Batch||'') + '</div><div class="col-6"><strong>Slot:</strong> ' + (s.Slot||'') + '</div><div class="col-12 mt-2"><strong>Emergency:</strong> ' + (s.EmergencyContact||'') + '</div></div><div class="text-center mt-3" id="qrContainer"></div></div></div><div class="modal-footer"><button class="btn btn-primary" onclick="window.print()"><i class="bi bi-printer"></i> Print</button>' + (s.WhatsApp ? '<a href="https://wa.me/' + s.WhatsApp.replace(/[^0-9]/g,'') + '?text=Student+ID+Card" target="_blank" class="btn btn-success"><i class="bi bi-whatsapp"></i> WhatsApp</a>' : '') + '</div></div></div></div>';
+  
+  $('#modalContainer').innerHTML = html;
+  var modal = new bootstrap.Modal(document.getElementById('idcardModal'));
+  modal.show();
+  
+  setTimeout(function() {
+    var qrEl = document.getElementById('qrContainer');
+    if (qrEl && typeof QRCode !== 'undefined') {
+      new QRCode(qrEl, { text: qrData, width: 100, height: 100 });
+    }
+  }, 500);
+}
+
+// ==================== TUTORS ====================
+async function renderTutors() {
+  App.tutors = (await callGS('getTutors')) || [];
+  var html = '<div class="d-flex justify-content-between align-items-center mb-3"><h4><i class="bi bi-person-badge me-2"></i>Tutors (' + App.tutors.length + ')</h4><button class="btn btn-primary" onclick="showTutorForm()"><i class="bi bi-plus-lg"></i> Add Tutor</button></div>';
+  html += '<div class="card"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>ID</th><th>Name</th><th>Subjects</th><th>Salary Type</th><th>Package</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
+  
+  App.tutors.forEach(function(t) {
+    html += '<tr><td><small>' + (t.TutorID||'') + '</small></td><td><strong>' + (t.Name||'') + '</strong></td><td>' + (t.Subjects||'') + '</td><td>' + (t.SalaryType||'') + '</td><td>PKR ' + ((t.MonthlyPackage||t.PerLecturePay||0).toLocaleString()) + '</td><td><span class="badge bg-' + (t.Status==='Active'?'success':'warning') + '">' + (t.Status||'') + '</span></td><td><button class="btn btn-sm btn-info me-1" onclick="editTutor(\'' + t.TutorID + '\')"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-danger" onclick="deleteTutorConfirm(\'' + t.TutorID + '\')"><i class="bi bi-trash"></i></button></td></tr>';
+  });
+  
+  html += '</tbody></table></div></div>';
+  return html;
+}
+
+function showTutorForm(tid) {
+  var t = tid ? App.tutors.find(function(tu) { return tu.TutorID === tid; }) : null;
+  var html = '<div class="modal fade" id="tutorModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><h5>' + (t ? 'Edit' : 'Register') + ' Tutor</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="tutorForm" class="row g-3">';
+  html += '<div class="col-md-6"><label class="form-label">Name *</label><input class="form-control" name="name" value="' + (t ? t.Name||'' : '') + '" required></div>';
+  html += '<div class="col-md-6"><label class="form-label">CNIC</label><input class="form-control" name="cnic" value="' + (t ? t.CNIC||'' : '') + '"></div>';
+  html += '<div class="col-md-6"><label class="form-label">Qualification</label><input class="form-control" name="qualification" value="' + (t ? t.Qualification||'' : '') + '"></div>';
+  html += '<div class="col-md-6"><label class="form-label">Experience</label><input class="form-control" name="experience" value="' + (t ? t.Experience||'' : '') + '"></div>';
+  html += '<div class="col-md-6"><label class="form-label">Subjects</label><input class="form-control" name="subjects" value="' + (t ? t.Subjects||'' : '') + '"></div>';
+  html += '<div class="col-md-3"><label class="form-label">Phone</label><input class="form-control" name="phone" value="' + (t ? t.Phone||'' : '') + '"></div>';
+  html += '<div class="col-md-3"><label class="form-label">WhatsApp</label><input class="form-control" name="whatsapp" value="' + (t ? t.WhatsApp||'' : '') + '"></div>';
+  html += '<div class="col-md-6"><label class="form-label">Email</label><input type="email" class="form-control" name="email" value="' + (t ? t.Email||'' : '') + '"></div>';
+  html += '<div class="col-12"><label class="form-label">Address</label><input class="form-control" name="address" value="' + (t ? t.Address||'' : '') + '"></div>';
+  html += '<div class="col-md-6"><label class="form-label">City</label><input class="form-control" name="city" value="' + (t ? t.City||'' : '') + '"></div>';
+  html += '<div class="col-md-3"><label class="form-label">Salary Type</label><select class="form-select" name="salaryType"><option>Monthly</option><option>PerLecture</option></select></div>';
+  html += '<div class="col-md-3"><label class="form-label">Per Lecture Pay</label><input type="number" class="form-control" name="perLecturePay" value="' + (t ? t.PerLecturePay||0 : 0) + '"></div>';
+  html += '<div class="col-md-3"><label class="form-label">Monthly Package</label><input type="number" class="form-control" name="monthlyPackage" value="' + (t ? t.MonthlyPackage||0 : 0) + '"></div>';
+  html += '<div class="col-md-3"><label class="form-label">Status</label><select class="form-select" name="status"><option>Active</option><option>Inactive</option></select></div>';
+  html += '<div class="col-md-6"><label class="form-label">Image URL</label><input class="form-control" name="imageUrl" value="' + (t ? t.ImageURL||'' : '') + '"></div>';
+  html += '<input type="hidden" name="tutorId" value="' + (t ? t.TutorID : '') + '">';
+  html += '</form></div><div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" onclick="saveTutor()">' + (t ? 'Update' : 'Register') + '</button></div></div></div></div>';
+  
+  $('#modalContainer').innerHTML = html;
+  new bootstrap.Modal(document.getElementById('tutorModal')).show();
+}
+
+async function saveTutor() {
+  var form = document.getElementById('tutorForm');
+  var fd = new FormData(form);
+  var data = {};
+  fd.forEach(function(v, k) { data[k] = v; });
+  var tid = data.tutorId;
+  delete data.tutorId;
+  
+  showLoading();
+  var res;
+  if (tid) { res = await callGS('updateTutor', tid, data); }
+  else { res = await callGS('addTutor', data); }
+  hideLoading();
+  
+  if (res && res.success) { showToast(tid ? 'Tutor updated!' : 'Tutor registered!', 'success'); navigateTo('tutors'); }
+  else showToast('Failed to save', 'danger');
+}
+
+function editTutor(tid) { showTutorForm(tid); }
+
+async function deleteTutorConfirm(tid) {
+  if (!confirm('Delete this tutor?')) return;
+  showLoading();
+  var res = await callGS('deleteTutor', tid);
+  hideLoading();
+  if (res && res.success) { showToast('Tutor archived', 'warning'); navigateTo('tutors'); }
+}
+
+// ==================== FEES ====================
+async function renderFees() {
+  App.students = (await callGS('getStudents')) || [];
+  var history = (await callGS('getAllFeeHistory')) || [];
+  var html = '<div class="d-flex justify-content-between mb-3"><h4><i class="bi bi-cash-stack me-2"></i>Fee Management</h4><button class="btn btn-primary" onclick="showFeeForm()"><i class="bi bi-plus-lg"></i> Add Payment</button></div>';
+  html += '<div class="row g-3 mb-3"><div class="col-md-4"><div class="card p-3 text-center"><h5 class="text-success">Total Students</h5><h2>' + App.students.length + '</h2></div></div><div class="col-md-4"><div class="card p-3 text-center"><h5 class="text-danger">Outstanding</h5><h2>PKR ' + App.students.reduce(function(s,st){return s+parseFloat(st.Fee||0);},0).toLocaleString() + '</h2></div></div><div class="col-md-4"><div class="card p-3 text-center"><h5 class="text-info">Payments</h5><h2>' + history.length + '</h2></div></div></div>';
+  html += '<div class="card"><div class="table-responsive"><table class="table"><thead><tr><th>Student</th><th>Total Fee</th><th>Status</th><th>Action</th></tr></thead><tbody>';
+  App.students.forEach(function(s) {
+    html += '<tr><td>' + (s.FullName||'') + '</td><td>PKR ' + (parseFloat(s.Fee||0).toLocaleString()) + '</td><td><span class="badge bg-' + (parseFloat(s.Fee)>0?'warning':'danger') + '">' + (parseFloat(s.Fee)>0?'Outstanding':'Unpaid') + '</span></td><td><button class="btn btn-sm btn-success" onclick="showFeeForm(\'' + s.StudentID + '\')">Pay Fee</button></td></tr>';
+  });
+  html += '</tbody></table></div></div>';
+  return html;
+}
+
+function showFeeForm(sid) {
+  var html = '<div class="modal fade" id="feeModal"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5>Record Fee Payment</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="feeForm"><div class="mb-3"><label class="form-label">Student</label><select class="form-select" name="studentId">';
+  App.students.forEach(function(s) { html += '<option value="' + s.StudentID + '" ' + (sid===s.StudentID?'selected':'') + '>' + s.FullName + ' (' + s.StudentID + ')</option>'; });
+  html += '</select></div><div class="mb-3"><label class="form-label">Amount (PKR)</label><input type="number" class="form-control" name="amount" required></div><div class="mb-3"><label class="form-label">Month</label><input type="month" class="form-control" name="month"></div><div class="mb-3"><label class="form-label">Receipt No</label><input class="form-control" name="receiptNo"></div></form></div><div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" onclick="saveFeePayment()">Save Payment</button></div></div></div></div>';
+  $('#modalContainer').innerHTML = html;
+  new bootstrap.Modal(document.getElementById('feeModal')).show();
+}
+
+async function saveFeePayment() {
+  var f = document.getElementById('feeForm');
+  var fd = new FormData(f);
+  var data = {};
+  fd.forEach(function(v,k) { data[k] = v; });
+  showLoading();
+  var res = await callGS('addFeePayment', data.studentId, parseFloat(data.amount), data.month, data.receiptNo);
+  hideLoading();
+  if (res && res.success) { showToast('Payment recorded!', 'success'); navigateTo('fees'); }
+  else showToast('Failed', 'danger');
+}
+
+// ==================== SALARY ====================
+async function renderSalary() {
+  App.tutors = (await callGS('getTutors')) || [];
+  var history = (await callGS('getAllSalaryHistory')) || [];
+  var html = '<div class="d-flex justify-content-between mb-3"><h4><i class="bi bi-wallet2 me-2"></i>Salary Management</h4><button class="btn btn-primary" onclick="showSalaryForm()"><i class="bi bi-plus-lg"></i> Process Salary</button></div>';
+  html += '<div class="card"><div class="table-responsive"><table class="table"><thead><tr><th>Tutor</th><th>Type</th><th>Package</th><th>Status</th><th>Action</th></tr></thead><tbody>';
+  App.tutors.forEach(function(t) {
+    html += '<tr><td>' + (t.Name||'') + '</td><td>' + (t.SalaryType||'') + '</td><td>PKR ' + ((t.MonthlyPackage||t.PerLecturePay||0).toLocaleString()) + '</td><td><span class="badge bg-' + (t.Status==='Active'?'success':'secondary') + '">' + (t.Status||'') + '</span></td><td><button class="btn btn-sm btn-success" onclick="showSalaryForm(\'' + t.TutorID + '\')">Pay Salary</button></td></tr>';
+  });
+  html += '</tbody></table></div></div>';
+  return html;
+}
+
+function showSalaryForm(tid) {
+  var html = '<div class="modal fade" id="salaryModal"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5>Process Salary</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="salaryForm"><div class="mb-3"><label>Tutor</label><select class="form-select" name="tutorId">';
+  App.tutors.forEach(function(t) { html += '<option value="' + t.TutorID + '" ' + (tid===t.TutorID?'selected':'') + '>' + t.Name + '</option>'; });
+  html += '</select></div><div class="mb-3"><label>Month</label><input type="month" class="form-control" name="month"></div><div class="mb-3"><label>Amount (PKR)</label><input type="number" class="form-control" name="amount" required></div><div class="mb-3"><label>Lectures</label><input type="number" class="form-control" name="lectures" value="0"></div><div class="mb-3"><label>Deductions</label><input type="number" class="form-control" name="deductions" value="0"></div></form></div><div class="modal-footer"><button class="btn btn-primary" onclick="saveSalary()">Save</button></div></div></div></div>';
+  $('#modalContainer').innerHTML = html;
+  new bootstrap.Modal(document.getElementById('salaryModal')).show();
+}
+
+async function saveSalary() {
+  var f = document.getElementById('salaryForm');
+  var fd = new FormData(f);
+  var data = {};
+  fd.forEach(function(v,k) { data[k] = v; });
+  showLoading();
+  var res = await callGS('addSalaryPayment', data.tutorId, data.month, parseFloat(data.amount), parseInt(data.lectures||0), parseInt(data.deductions||0));
+  hideLoading();
+  if (res && res.success) { showToast('Salary processed!', 'success'); navigateTo('salary'); }
+}
+
+// ==================== ID CARDS PAGE ====================
+async function renderIDCards() {
+  App.students = (await callGS('getStudents')) || [];
+  App.tutors = (await callGS('getTutors')) || [];
+  var html = '<div class="row g-3"><div class="col-md-6"><div class="card"><div class="card-header">Student ID Cards</div><div class="card-body">';
+  App.students.slice(0,10).forEach(function(s) {
+    html += '<div class="d-flex justify-content-between py-2 border-bottom"><span>' + (s.FullName||'') + ' <small>(' + (s.StudentID||'') + ')</small></span><button class="btn btn-sm btn-info" onclick="showStudentIDCard(\'' + s.StudentID + '\')"><i class="bi bi-credit-card"></i> View</button></div>';
+  });
+  html += '</div></div></div><div class="col-md-6"><div class="card"><div class="card-header">Tutor ID Cards</div><div class="card-body">';
+  App.tutors.slice(0,10).forEach(function(t) {
+    html += '<div class="d-flex justify-content-between py-2 border-bottom"><span>' + (t.Name||'') + ' <small>(' + (t.TutorID||'') + ')</small></span><button class="btn btn-sm btn-info" onclick="showTutorIDCard(\'' + t.TutorID + '\')"><i class="bi bi-credit-card"></i> View</button></div>';
+  });
+  html += '</div></div></div></div>';
+  return html;
+}
+
+function showTutorIDCard(tid) {
+  var t = App.tutors.find(function(tu) { return tu.TutorID === tid; });
+  if (!t) return;
+  var qrData = 'TUTOR:' + t.TutorID + '|' + t.Name + '|' + (App.settings.instituteName||'');
+  var html = '<div class="modal fade"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5>Tutor ID Card</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="card p-3" style="background:linear-gradient(135deg,#198754,#20c997);color:#fff;border-radius:16px;"><div class="text-center"><h5>' + (App.settings.instituteName||'') + '</h5></div><div class="text-center my-3"><img src="' + (t.ImageURL||'https://img.icons8.com/color/96/user.png') + '" style="width:80px;height:80px;border-radius:50%;border:3px solid #fff;object-fit:cover;"></div><h6 class="text-center">' + (t.Name||'') + '</h6><div class="small mt-2"><strong>ID:</strong> ' + (t.TutorID||'') + '<br><strong>Subjects:</strong> ' + (t.Subjects||'') + '<br><strong>Phone:</strong> ' + (t.Phone||'') + '</div><div class="text-center mt-3" id="qrTutorContainer"></div></div></div><div class="modal-footer"><button class="btn btn-primary" onclick="window.print()">Print</button></div></div></div></div>';
+  $('#modalContainer').innerHTML = html;
+  new bootstrap.Modal(document.querySelector('#modalContainer .modal')).show();
+  setTimeout(function() {
+    var qrEl = document.getElementById('qrTutorContainer');
+    if (qrEl && typeof QRCode !== 'undefined') new QRCode(qrEl, { text: qrData, width: 100, height: 100 });
+  }, 500);
+}
+
+// ==================== ARCHIVE ====================
+async function renderArchive() {
+  var archS = (await callGS('getArchivedStudents')) || [];
+  var archT = (await callGS('getArchivedTutors')) || [];
+  return '<ul class="nav nav-tabs mb-3"><li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#archStudents">Archived Students (' + archS.length + ')</button></li><li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#archTutors">Archived Tutors (' + archT.length + ')</button></li></ul><div class="tab-content"><div class="tab-pane fade show active" id="archStudents"><div class="card"><div class="table-responsive"><table class="table"><thead><tr><th>ID</th><th>Name</th><th>Class</th><th>Phone</th></tr></thead><tbody>' + (archS.length === 0 ? '<tr><td colspan="4">No archived students</td></tr>' : archS.map(function(s){return '<tr><td>'+(s[0]||'')+'</td><td>'+(s[2]||'')+'</td><td>'+(s[18]||'')+'</td><td>'+(s[7]||'')+'</td></tr>';}).join('')) + '</tbody></table></div></div></div><div class="tab-pane fade" id="archTutors"><div class="card"><div class="table-responsive"><table class="table"><thead><tr><th>ID</th><th>Name</th><th>Subjects</th><th>Phone</th></tr></thead><tbody>' + (archT.length === 0 ? '<tr><td colspan="4">No archived tutors</td></tr>' : archT.map(function(t){return '<tr><td>'+(t[0]||'')+'</td><td>'+(t[1]||'')+'</td><td>'+(t[5]||'')+'</td><td>'+(t[6]||'')+'</td></tr>';}).join('')) + '</tbody></table></div></div></div></div>';
+}
+
+// ==================== REMINDERS ====================
+async function renderReminders() {
+  App.students = (await callGS('getStudents')) || [];
+  var html = '<div class="row g-3"><div class="col-md-6"><div class="card"><div class="card-header">Fee Reminder</div><div class="card-body"><div class="mb-3"><label>Select Student</label><select class="form-select" id="reminderStudent">';
+  App.students.forEach(function(s) { html += '<option value="' + s.StudentID + '">' + s.FullName + '</option>'; });
+  html += '</select></div><div class="mb-3"><label>Outstanding Months</label><input class="form-control" id="reminderMonths" value="2"></div><div class="mb-3"><label>Due Date</label><input type="date" class="form-control" id="reminderDue"></div><button class="btn btn-warning w-100" onclick="sendFeeReminder()"><i class="bi bi-whatsapp"></i> Send WhatsApp Reminder</button></div></div></div><div class="col-md-6"><div class="card"><div class="card-header">Salary Reminder</div><div class="card-body"><p>Send salary reminders to tutors from tutor list.</p><button class="btn btn-info w-100" onclick="showToast(\'Feature active! Select tutor and send reminder.','info\')"><i class="bi bi-bell"></i> Send Reminder</button></div></div></div></div>';
+  return html;
+}
+
+function sendFeeReminder() {
+  var sid = document.getElementById('reminderStudent') ? document.getElementById('reminderStudent').value : '';
+  var months = document.getElementById('reminderMonths') ? document.getElementById('reminderMonths').value : '2';
+  var due = document.getElementById('reminderDue') ? document.getElementById('reminderDue').value : 'N/A';
+  var student = App.students.find(function(s) { return s.StudentID === sid; });
+  if (!student || !student.WhatsApp) return showToast('Student has no WhatsApp number', 'warning');
+  
+  var msg = '*' + (App.settings.instituteName||'Coaching Center') + '*\n\nDear ' + (student.FullName||'') + ',\n\nFee Reminder:\nOutstanding Months: ' + months + '\nDue Date: ' + due + '\nAmount: PKR ' + (parseFloat(student.Fee||0).toLocaleString()) + '\n\nPlease pay at earliest.\n\nRegards,\n' + (App.settings.instituteName||'') + '\n' + (App.settings.phone||'');
+  window.open('https://wa.me/' + student.WhatsApp.replace(/[^0-9]/g,'') + '?text=' + encodeURIComponent(msg), '_blank');
+  showToast('WhatsApp opened!', 'success');
+}
+
+// ==================== SETTINGS ====================
+async function renderSettings() {
+  var s = App.settings;
+  var html = '<div class="row g-3"><div class="col-md-8"><div class="card"><div class="card-header">General Settings</div><div class="card-body"><form id="settingsForm" class="row g-3">';
+  html += '<div class="col-md-6"><label>Institute Name</label><input class="form-control" id="setName" value="' + (s.instituteName||'') + '"></div>';
+  html += '<div class="col-md-6"><label>Logo URL</label><input class="form-control" id="setLogo" value="' + (s.logoUrl||'') + '"></div>';
+  html += '<div class="col-md-6"><label>Address</label><input class="form-control" id="setAddress" value="' + (s.address||'') + '"></div>';
+  html += '<div class="col-md-3"><label>Phone</label><input class="form-control" id="setPhone" value="' + (s.phone||'') + '"></div>';
+  html += '<div class="col-md-3"><label>Email</label><input class="form-control" id="setEmail" value="' + (s.email||'') + '"></div>';
+  html += '<div class="col-md-4"><label>Website</label><input class="form-control" id="setWebsite" value="' + (s.website||'') + '"></div>';
+  html += '<div class="col-md-3"><label>Primary Color</label><input type="color" class="form-control" id="setPrimary" value="' + (s.primaryColor||'#0d6efd') + '"></div>';
+  html += '<div class="col-md-3"><label>Admin Password</label><input type="password" class="form-control" id="setPassword" placeholder="Leave blank"></div>';
+  html += '<div class="col-12"><button type="button" class="btn btn-primary" onclick="saveSettings()"><i class="bi bi-check-lg"></i> Save Settings</button></div>';
+  html += '</form></div></div></div><div class="col-md-4"><div class="card mb-3"><div class="card-header">Maintenance</div><div class="card-body d-grid gap-2">';
+  html += '<button class="btn btn-outline-info" onclick="clearCacheAction()"><i class="bi bi-trash"></i> Clear Cache</button>';
+  html += '<button class="btn btn-outline-danger" onclick="resetProjectAction()"><i class="bi bi-arrow-counterclockwise"></i> Reset Settings</button>';
+  html += '<button class="btn btn-outline-success" onclick="generateDummyAction()"><i class="bi bi-database-add"></i> Generate Dummy Data</button>';
+  html += '</div></div></div></div>';
+  return html;
+}
+
+async function saveSettings() {
+  var data = {
+    instituteName: document.getElementById('setName') ? document.getElementById('setName').value : '',
+    logoUrl: document.getElementById('setLogo') ? document.getElementById('setLogo').value : '',
+    address: document.getElementById('setAddress') ? document.getElementById('setAddress').value : '',
+    phone: document.getElementById('setPhone') ? document.getElementById('setPhone').value : '',
+    email: document.getElementById('setEmail') ? document.getElementById('setEmail').value : '',
+    website: document.getElementById('setWebsite') ? document.getElementById('setWebsite').value : '',
+    primaryColor: document.getElementById('setPrimary') ? document.getElementById('setPrimary').value : '#0d6efd'
+  };
+  var pwd = document.getElementById('setPassword') ? document.getElementById('setPassword').value : '';
+  if (pwd) data.adminPassword = pwd;
+  showLoading();
+  await callGS('updateSettings', data);
+  App.settings = (await callGS('getSettings')) || {};
+  hideLoading();
+  showToast('Settings saved!', 'success');
+}
+
+async function clearCacheAction() {
+  showLoading();
+  var res = await callGS('clearSystemCache');
+  hideLoading();
+  showToast(res ? res.message || 'Done' : 'Done', 'info');
+}
+
+async function resetProjectAction() {
+  if (!confirm('Reset all settings? Password will be admin123')) return;
+  showLoading();
+  await callGS('resetProject');
+  App.settings = (await callGS('getSettings')) || {};
+  hideLoading();
+  showToast('Project reset! Password: admin123', 'warning');
+}
+
+async function generateDummyAction() {
+  showLoading();
+  var res = await callGS('generateDummyData');
+  hideLoading();
+  showToast(res ? res.message || 'Done' : 'Done', 'success');
+}
+
+// ==================== INIT ====================
+window.addEventListener('load', function() {
+  console.log('ERP System Starting...');
+  checkSession();
+});
+</script>
+</body>
+</html>
